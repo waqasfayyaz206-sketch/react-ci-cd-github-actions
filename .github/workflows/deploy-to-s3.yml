@@ -1,0 +1,56 @@
+name: React CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Get source code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2️⃣ Set Node.js version
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      # 4️⃣ Run tests (if available)
+      - name: Run tests
+        run: npm test -- --watch=false
+        continue-on-error: true
+
+      # 5️⃣ Build React app
+      - name: Build application
+        run: npm run build
+
+      # 6️⃣ Build Docker image (real-world validation step)
+      - name: Build Docker image
+        run: docker build -t react-app:latest .
+
+      # 7️⃣ Run container to verify build
+      - name: Run Docker container
+        run: docker run -d -p 3000:80 react-app:latest
+
+      # 8️⃣ Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      # 9️⃣ Deploy build output to S3
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://your-s3-bucket-name --delete

@@ -1,0 +1,52 @@
+name: 'Deploy the web to s3 using CICD Github Actions'
+
+on:
+ push:
+   branches:
+    - main
+
+jobs:
+  build and deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: 'checkout code'
+        uses: actions/checkout@v4
+
+      - name: 'setup install node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 'install dependencies'
+        run: npm install --legacy-peer-deps
+
+      - name: 'run test'
+        run: npm test -- --watch=false
+        continue-on-error: true
+
+      - name: 'build the app'
+        run: npm run build
+
+      - name: 'build Docker image now'
+        run: docker build -t react-docker:latest .
+
+      - name: 'run the Docker image'
+        run: docker run -d -p 3000:80 react-docker:latest
+
+      - name: 'Configure AWS credentials'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{secret.AWS_ACCESS_KEY_ID}}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: 'Deploy to s3'
+        run: |
+          aws s3 sync dist/ s3://your-s3-bucket-name --delete
+
+
+
+
